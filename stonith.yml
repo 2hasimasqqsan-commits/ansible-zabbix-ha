@@ -1,0 +1,8 @@
+---
+- name: Configure STONITH resources for Zabbix DB HA
+  hosts: zabbix_db
+  become: true
+  vars_files:
+    - group_vars/vault.yml
+  roles:
+    - stonith

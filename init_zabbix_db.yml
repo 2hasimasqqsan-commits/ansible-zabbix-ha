@@ -1,0 +1,134 @@
+---
+- name: Detect active MariaDB node managed by Pacemaker
+  hosts: zabbix_db
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Get Pacemaker status
+      ansible.builtin.command: crm status
+      register: crm_status
+      changed_when: false
+      run_once: true
+
+    - name: Extract active MariaDB node
+      ansible.builtin.set_fact:
+        active_db_node: "{{ crm_status.stdout | regex_search('p_mariadb\\s+\\(systemd:mariadb\\):\\s+Started\\s+(\\S+)', '\\1') | first }}"
+      run_once: true
+
+    - name: Show active DB node
+      ansible.builtin.debug:
+        msg: "Active MariaDB node is {{ active_db_node }}"
+      run_once: true
+
+    - name: Add active DB node to temporary group
+      ansible.builtin.add_host:
+        name: "{{ active_db_node }}"
+        groups: active_zabbix_db
+      run_once: true
+
+
+- name: Initialize Zabbix database on active MariaDB node
+  hosts: active_zabbix_db
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check MariaDB is active on this node
+      ansible.builtin.command: systemctl is-active mariadb
+      register: mariadb_active
+      changed_when: false
+
+    - name: Abort if MariaDB is not active
+      ansible.builtin.fail:
+        msg: "MariaDB is not active on {{ inventory_hostname }}. Abort Zabbix DB initialization."
+      when: mariadb_active.stdout != "active"
+
+    - name: Check Zabbix SQL schema file exists
+      ansible.builtin.stat:
+        path: /usr/share/zabbix-sql-scripts/mysql/server.sql.gz
+      register: zabbix_schema_file
+
+    - name: Abort if Zabbix schema file does not exist
+      ansible.builtin.fail:
+        msg: "Zabbix schema file not found: /usr/share/zabbix-sql-scripts/mysql/server.sql.gz"
+      when: not zabbix_schema_file.stat.exists
+
+    - name: Create Zabbix database
+      ansible.builtin.shell: |
+        mysql -uroot -e "
+        CREATE DATABASE IF NOT EXISTS {{ zabbix_db_name }}
+          CHARACTER SET utf8mb4
+          COLLATE utf8mb4_bin;
+        "
+      changed_when: false
+
+    - name: Create Zabbix database user and grant privileges
+      ansible.builtin.shell: |
+        mysql -uroot -e "
+        CREATE USER IF NOT EXISTS '{{ zabbix_db_user }}'@'%' IDENTIFIED BY '{{ zabbix_db_password }}';
+        GRANT ALL PRIVILEGES ON {{ zabbix_db_name }}.* TO '{{ zabbix_db_user }}'@'%';
+        FLUSH PRIVILEGES;
+        "
+      changed_when: false
+      no_log: true
+
+    - name: Check existing Zabbix tables
+      ansible.builtin.shell: |
+        mysql -uroot -N -B -e "
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema='{{ zabbix_db_name }}';
+        "
+      register: zabbix_table_count
+      changed_when: false
+
+    - name: Show existing Zabbix table count
+      ansible.builtin.debug:
+        msg: "Existing Zabbix table count: {{ zabbix_table_count.stdout }}"
+
+    - name: Temporarily allow function creators for schema import
+      ansible.builtin.shell: |
+        mysql -uroot -e "SET GLOBAL log_bin_trust_function_creators = 1;"
+      failed_when: false
+      changed_when: false
+
+    - name: Import Zabbix initial schema
+      ansible.builtin.shell: |
+        zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | \
+        mysql --default-character-set=utf8mb4 -uroot {{ zabbix_db_name }}
+      when: zabbix_table_count.stdout | int == 0
+
+    - name: Disable function creators setting after schema import
+      ansible.builtin.shell: |
+        mysql -uroot -e "SET GLOBAL log_bin_trust_function_creators = 0;"
+      failed_when: false
+      changed_when: false
+
+    - name: Check Zabbix tables after initialization
+      ansible.builtin.shell: |
+        mysql -uroot -N -B -e "
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema='{{ zabbix_db_name }}';
+        "
+      register: zabbix_table_count_after
+      changed_when: false
+
+    - name: Show final Zabbix table count
+      ansible.builtin.debug:
+        msg: "Final Zabbix table count: {{ zabbix_table_count_after.stdout }}"
+
+    - name: Test Zabbix DB user login via DB VIP
+      ansible.builtin.shell: |
+        mysql -h {{ zabbix_db_vip }} \
+              -P 3306 \
+              -u {{ zabbix_db_user }} \
+              -p'{{ zabbix_db_password }}' \
+              -N -B \
+              -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{{ zabbix_db_name }}';"
+      register: zabbix_user_login_test
+      changed_when: false
+      no_log: true
+
+    - name: Print Zabbix DB user login test result
+      ansible.builtin.debug:
+        msg: "Zabbix DB user login via {{ zabbix_db_vip }} succeeded."

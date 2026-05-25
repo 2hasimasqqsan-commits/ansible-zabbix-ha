@@ -1,0 +1,43 @@
+---
+- name: Install DRBD packages
+  ansible.builtin.apt:
+    name:
+      - drbd-utils
+      - linux-modules-extra-{{ ansible_kernel }}
+    state: present
+    update_cache: true
+
+- name: Load drbd kernel module
+  ansible.builtin.modprobe:
+    name: drbd
+    state: present
+
+- name: Ensure drbd module loads at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/drbd.conf
+    content: "drbd\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Deploy DRBD resource config for MySQL
+  ansible.builtin.template:
+    src: mysql.res.j2
+    dest: "/etc/drbd.d/{{ drbd_resource_name }}.res"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Check DRBD backing disk exists
+  ansible.builtin.stat:
+    path: "{{ drbd_backing_disk }}"
+  register: drbd_disk_stat
+
+- name: Fail if DRBD backing disk does not exist
+  ansible.builtin.fail:
+    msg: "{{ drbd_backing_disk }} does not exist. Check Proxmox additional disk mapping."
+  when: not drbd_disk_stat.stat.exists
+
+- name: Show DRBD backing disk
+  ansible.builtin.command: "lsblk {{ drbd_backing_disk }}"
+  changed_when: false

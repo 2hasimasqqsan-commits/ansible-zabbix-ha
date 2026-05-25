@@ -1,0 +1,75 @@
+---
+# Common
+timezone: "Asia/Tokyo"
+domain_name: "example.local"
+
+# Host FQDN
+zabbix_db01_fqdn: "zbx-ha-db01.example.local"
+zabbix_db02_fqdn: "zbx-ha-db02.example.local"
+
+# Example node IPs
+zabbix_db01_ip: "192.168.56.111"
+zabbix_db02_ip: "192.168.56.112"
+
+# Example VIPs
+# Web VIP is used by Apache/Zabbix frontend.
+# DB VIP is used by MariaDB and Zabbix server DB connection.
+zabbix_web_vip: "192.168.56.113"
+zabbix_db_vip: "192.168.56.114"
+
+# Zabbix DB
+zabbix_db_name: "zabbix"
+zabbix_db_user: "zabbix"
+zabbix_db_password: "CHANGE_ME"
+
+# DRBD
+drbd_resource_name: "mysql"
+drbd_device: "/dev/drbd0"
+drbd_backing_disk: "/dev/sdb"
+drbd_port: "7789"
+drbd_mount_point: "/var/lib/mysql"
+drbd_fs_type: "xfs"
+drbd_shared_secret: "CHANGE_ME"
+
+# Pacemaker cluster
+cluster_name: "zbx-ha-cluster"
+
+# Pacemaker DB HA
+# DB VIP is managed by Pacemaker IPaddr2.
+# This IP moves between zbx-ha-db01 and zbx-ha-db02.
+db_vip_nic: "ens18"
+db_vip_cidr: "24"
+mariadb_service_name: "mariadb"
+
+# STONITH / BMC fencing
+# These are example values only.
+stonith_enabled: true
+stonith_action: "off"
+
+bmc_fence_agent: "fence_ipmilan"
+
+zbx_bmc01_ip: "192.168.56.121"
+zbx_bmc02_ip: "192.168.56.122"
+
+bmc_username: "ADMIN"
+bmc_password: "CHANGE_ME"
+bmc_lanplus: "1"
+
+# Zabbix stack
+zabbix_version_major: "7.0"
+zabbix_repo_deb_url: "https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.0+ubuntu24.04_all.deb"
+zabbix_repo_deb_path: "/tmp/zabbix-release_latest_7.0+ubuntu24.04_all.deb"
+
+zabbix_server_conf_path: "/etc/zabbix/zabbix_server.conf"
+
+zabbix_server_name: "zbx-ha-cluster"
+zabbix_db_host: "{{ zabbix_db_vip }}"
+zabbix_db_port: "3306"
+
+# Pacemaker Zabbix/Web HA
+# Web VIP is managed by Pacemaker IPaddr2.
+# This IP moves between zbx-ha-db01 and zbx-ha-db02.
+web_vip_nic: "ens18"
+web_vip_cidr: "24"
+zabbix_server_service_name: "zabbix-server"
+apache_service_name: "apache2"

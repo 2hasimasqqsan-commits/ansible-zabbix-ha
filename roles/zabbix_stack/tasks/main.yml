@@ -1,0 +1,124 @@
+---
+- name: Install prerequisite packages for Zabbix repository
+  ansible.builtin.apt:
+    name:
+      - wget
+      - gnupg
+      - ca-certificates
+      - apt-transport-https
+    state: present
+    update_cache: true
+
+- name: Check if Zabbix release package is installed
+  ansible.builtin.command: dpkg -s zabbix-release
+  register: zabbix_release_check
+  changed_when: false
+  failed_when: false
+
+- name: Download Zabbix release package
+  ansible.builtin.get_url:
+    url: "{{ zabbix_repo_deb_url }}"
+    dest: "{{ zabbix_repo_deb_path }}"
+    mode: "0644"
+  when:
+    - zabbix_release_check.rc != 0
+    - not ansible_check_mode
+
+- name: Install Zabbix release package
+  ansible.builtin.apt:
+    deb: "{{ zabbix_repo_deb_path }}"
+    state: present
+  when:
+    - zabbix_release_check.rc != 0
+    - not ansible_check_mode
+
+- name: Update apt cache after adding Zabbix repository
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install Zabbix server, frontend, Apache config and agent
+  ansible.builtin.apt:
+    name:
+      - zabbix-server-mysql
+      - zabbix-frontend-php
+      - zabbix-apache-conf
+      - zabbix-sql-scripts
+      - zabbix-agent
+      - apache2
+      - php-mysql
+    state: present
+
+- name: Deploy zabbix_server.conf
+  ansible.builtin.template:
+    src: zabbix_server.conf.j2
+    dest: "{{ zabbix_server_conf_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure Zabbix web config directory exists
+  ansible.builtin.file:
+    path: /etc/zabbix/web
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Deploy Zabbix frontend config
+  ansible.builtin.template:
+    src: zabbix.conf.php.j2
+    dest: /etc/zabbix/web/zabbix.conf.php
+    owner: www-data
+    group: www-data
+    mode: "0640"
+  no_log: true
+
+- name: Disable Zabbix server auto-start because Pacemaker will manage it
+  ansible.builtin.systemd:
+    name: zabbix-server
+    enabled: false
+  failed_when: false
+
+- name: Ensure zabbix-server systemd override directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/zabbix-server.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure zabbix-server forced stop behavior
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/zabbix-server.service.d/override.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Service]
+      TimeoutStopSec=60s
+      KillMode=control-group
+      SendSIGKILL=yes
+
+- name: Reload systemd after zabbix-server override
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Disable Apache auto-start because Pacemaker will manage it
+  ansible.builtin.systemd:
+    name: apache2
+    enabled: false
+  failed_when: false
+
+- name: Stop Zabbix server for now
+  ansible.builtin.systemd:
+    name: zabbix-server
+    state: stopped
+  failed_when: false
+  when: zabbix_stack_stop_services_after_install | default(false) | bool
+
+- name: Stop Apache for now
+  ansible.builtin.systemd:
+    name: apache2
+    state: stopped
+  failed_when: false
+  when: zabbix_stack_stop_services_after_install | default(false) | bool

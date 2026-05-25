@@ -1,0 +1,49 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - vim
+      - net-tools
+      - dnsutils
+      - qemu-guest-agent
+      - unzip
+      - chrony
+    state: present
+
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Set timezone
+  ansible.builtin.timezone:
+    name: "{{ timezone }}"
+
+- name: Enable and start qemu guest agent
+  ansible.builtin.service:
+    name: qemu-guest-agent
+    state: started
+    enabled: true
+
+- name: Enable and start chrony
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
+
+- name: Ensure hosts entries for HA nodes
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ZBX HA ANSIBLE MANAGED BLOCK"
+    block: |
+      {{ zabbix_web01_ip }} {{ zabbix_web01_fqdn }} zbx-ha-web01
+      {{ zabbix_web02_ip }} {{ zabbix_web02_fqdn }} zbx-ha-web02
+      {{ zabbix_db01_ip }} {{ zabbix_db01_fqdn }} zbx-ha-db01
+      {{ zabbix_db02_ip }} {{ zabbix_db02_fqdn }} zbx-ha-db02
+      {{ zabbix_web_vip }} zabbix-vip.example.local zabbix-vip
+      {{ zabbix_db_vip }} zabbix-db-vip.example.local zabbix-db-vip

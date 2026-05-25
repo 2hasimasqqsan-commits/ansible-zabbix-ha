@@ -1,0 +1,51 @@
+---
+- name: Verify Zabbix DB HA cluster
+  hosts: zabbix_db
+  become: true
+  tasks:
+    - name: Show crm status
+      ansible.builtin.command: crm status
+      register: crm_status
+      changed_when: false
+      failed_when: false
+
+    - name: Print crm status
+      ansible.builtin.debug:
+        var: crm_status.stdout_lines
+
+    - name: Show DRBD status
+      ansible.builtin.command: drbdadm status mysql
+      register: drbd_status
+      changed_when: false
+      failed_when: false
+
+    - name: Print DRBD status
+      ansible.builtin.debug:
+        var: drbd_status.stdout_lines
+
+    - name: Check mysql mount
+      ansible.builtin.shell: "mount | grep /var/lib/mysql || true"
+      register: mysql_mount
+      changed_when: false
+
+    - name: Print mysql mount
+      ansible.builtin.debug:
+        var: mysql_mount.stdout_lines
+
+    - name: Check DB VIP
+      ansible.builtin.shell: "ip a | grep {{ zabbix_db_vip }} || true"
+      register: db_vip_status
+      changed_when: false
+
+    - name: Print DB VIP
+      ansible.builtin.debug:
+        var: db_vip_status.stdout_lines
+
+    - name: Check MariaDB active state
+      ansible.builtin.shell: "systemctl is-active mariadb || true"
+      register: mariadb_status
+      changed_when: false
+
+    - name: Print MariaDB status
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} mariadb={{ mariadb_status.stdout }}"

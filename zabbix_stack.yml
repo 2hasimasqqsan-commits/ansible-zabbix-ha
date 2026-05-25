@@ -1,0 +1,8 @@
+---
+- name: Install Zabbix stack on DB HA nodes
+  hosts: zabbix_db
+  become: true
+  vars_files:
+    - group_vars/vault.yml
+  roles:
+    - zabbix_stack

@@ -1,0 +1,67 @@
+---
+- name: Initialize DRBD metadata on DB nodes
+  hosts: zabbix_db
+  become: true
+  tasks:
+    - name: Abort unless DRBD init is explicitly confirmed
+      ansible.builtin.fail:
+        msg: "This playbook initializes DRBD metadata on {{ drbd_backing_disk }}. Run with -e confirm_drbd_init=yes"
+      when: confirm_drbd_init | default('no') != 'yes'
+
+    - name: Install filesystem tools
+      ansible.builtin.apt:
+        name:
+          - xfsprogs
+        state: present
+        update_cache: true
+
+    - name: Show backing disk before DRBD init
+      ansible.builtin.command: "lsblk {{ drbd_backing_disk }}"
+      changed_when: false
+
+    - name: Check existing DRBD metadata
+      ansible.builtin.command: "drbdadm dump-md {{ drbd_resource_name }}"
+      register: drbd_dump_md
+      changed_when: false
+      failed_when: false
+
+    - name: Create DRBD metadata if not exists
+      ansible.builtin.shell: "yes yes | drbdadm create-md {{ drbd_resource_name }}"
+      when: drbd_dump_md.rc != 0
+
+    - name: Bring up DRBD resource
+      ansible.builtin.command: "drbdadm up {{ drbd_resource_name }}"
+      register: drbd_up
+      changed_when: "'already' not in (drbd_up.stderr | default(''))"
+      failed_when: drbd_up.rc not in [0]
+
+    - name: Show DRBD status after up
+      ansible.builtin.command: "drbdadm status {{ drbd_resource_name }}"
+      changed_when: false
+      failed_when: false
+
+- name: Make first node DRBD primary and create filesystem
+  hosts: zbx-ha-db01
+  become: true
+  tasks:
+    - name: Abort unless DRBD init is explicitly confirmed
+      ansible.builtin.fail:
+        msg: "This playbook promotes {{ inventory_hostname }} to initial DRBD primary. Run with -e confirm_drbd_init=yes"
+      when: confirm_drbd_init | default('no') != 'yes'
+
+    - name: Force initial DRBD primary on first node
+      ansible.builtin.command: "drbdadm primary --force {{ drbd_resource_name }}"
+
+    - name: Wait for DRBD device to appear
+      ansible.builtin.wait_for:
+        path: "{{ drbd_device }}"
+        timeout: 30
+
+    - name: Create XFS filesystem on DRBD device
+      ansible.builtin.filesystem:
+        fstype: "{{ drbd_fs_type }}"
+        dev: "{{ drbd_device }}"
+
+    - name: Show DRBD status on initial primary
+      ansible.builtin.command: "drbdadm status {{ drbd_resource_name }}"
+      changed_when: false

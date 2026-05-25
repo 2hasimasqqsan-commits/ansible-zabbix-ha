@@ -1,0 +1,31 @@
+resource {{ drbd_resource_name }} {
+    protocol C;
+
+    net {
+        cram-hmac-alg sha1;
+        shared-secret "{{ drbd_shared_secret }}";
+    }
+
+    disk {
+        on-io-error detach;
+    }
+
+    syncer {
+        rate 50M;
+        c-plan-ahead 0;
+    }
+
+    on zbx-ha-db01 {
+        device {{ drbd_device }};
+        disk {{ drbd_backing_disk }};
+        address {{ zabbix_db01_ip }}:{{ drbd_port }};
+        meta-disk internal;
+    }
+
+    on zbx-ha-db02 {
+        device {{ drbd_device }};
+        disk {{ drbd_backing_disk }};
+        address {{ zabbix_db02_ip }}:{{ drbd_port }};
+        meta-disk internal;
+    }
+}

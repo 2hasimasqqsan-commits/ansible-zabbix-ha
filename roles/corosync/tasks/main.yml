@@ -1,0 +1,44 @@
+---
+- name: Install Corosync and Pacemaker packages
+  ansible.builtin.apt:
+    name:
+      - corosync
+      - pacemaker
+      - crmsh
+      - resource-agents-base
+      - resource-agents-extra
+      - drbd-utils
+    state: present
+    update_cache: true
+
+- name: Deploy corosync.conf
+  ansible.builtin.template:
+    src: corosync.conf.j2
+    dest: /etc/corosync/corosync.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable corosync
+  ansible.builtin.systemd:
+    name: corosync
+    enabled: true
+
+- name: Enable pacemaker
+  ansible.builtin.systemd:
+    name: pacemaker
+    enabled: true
+
+- name: Start corosync
+  ansible.builtin.systemd:
+    name: corosync
+    state: started
+
+- name: Start pacemaker
+  ansible.builtin.systemd:
+    name: pacemaker
+    state: started
+
+- name: Wait for cluster startup
+  ansible.builtin.pause:
+    seconds: 10

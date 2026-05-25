@@ -1,0 +1,80 @@
+---
+- name: Check existing Pacemaker configuration
+  ansible.builtin.command: crm configure show
+  register: crm_config
+  changed_when: false
+  failed_when: false
+  run_once: true
+
+- name: Ensure STONITH enabled property is set
+  ansible.builtin.shell: |
+    crm configure property stonith-enabled={{ 'true' if stonith_enabled | bool else 'false' }}
+    crm configure property stonith-action={{ stonith_action | default('reboot') }}:
+  changed_when: false
+  run_once: true
+
+- name: Configure STONITH resource for zbx-ha-db01 by BMC
+  ansible.builtin.shell: |
+    crm configure primitive stonith_db01 stonith:fence_ipmilan \
+      params ipaddr="{{ zbx_bmc01_ip }}" \
+             login="{{ bmc_username }}" \
+             passwd="{{ bmc_password }}" \
+             lanplus="{{ bmc_lanplus }}" \
+             pcmk_host_list="zbx-ha-db01" \
+      op monitor interval="60s" \
+      op stop timeout="60s" interval="0s" \
+      op start timeout="60s" interval="0s"
+  when: "'stonith_db01' not in crm_config.stdout"
+  no_log: true
+  run_once: true
+
+- name: Configure STONITH resource for zbx-ha-db02 by BMC
+  ansible.builtin.shell: |
+    crm configure primitive stonith_db02 stonith:fence_ipmilan \
+      params ipaddr="{{ zbx_bmc02_ip }}" \
+             login="{{ bmc_username }}" \
+             passwd="{{ bmc_password }}" \
+             lanplus="{{ bmc_lanplus }}" \
+             pcmk_host_list="zbx-ha-db02" \
+      op monitor interval="60s" \
+      op stop timeout="60s" interval="0s" \
+      op start timeout="60s" interval="0s"
+  when: "'stonith_db02' not in crm_config.stdout"
+  no_log: true
+  run_once: true
+
+- name: Ensure stonith_db01 does not run on zbx-ha-db01
+  ansible.builtin.shell: |
+    crm configure location loc_stonith_db01_not_on_db01 stonith_db01 -inf: zbx-ha-db01
+  when: "'loc_stonith_db01_not_on_db01' not in crm_config.stdout"
+  run_once: true
+
+- name: Ensure stonith_db02 does not run on zbx-ha-db02
+  ansible.builtin.shell: |
+    crm configure location loc_stonith_db02_not_on_db02 stonith_db02 -inf: zbx-ha-db02
+  when: "'loc_stonith_db02_not_on_db02' not in crm_config.stdout"
+  run_once: true
+
+- name: Verify Pacemaker configuration
+  ansible.builtin.command: crm_verify -L
+  register: crm_verify_result
+  changed_when: false
+  failed_when: false
+  run_once: true
+
+- name: Show crm_verify result
+  ansible.builtin.debug:
+    var: crm_verify_result.stdout_lines
+  run_once: true
+
+- name: Show Pacemaker status
+  ansible.builtin.command: crm status
+  register: crm_status_after_stonith
+  changed_when: false
+  failed_when: false
+  run_once: true
+
+- name: Print Pacemaker status
+  ansible.builtin.debug:
+    var: crm_status_after_stonith.stdout_lines
+  run_once: true

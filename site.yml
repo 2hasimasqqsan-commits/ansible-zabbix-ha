@@ -1,0 +1,25 @@
+---
+- name: Configure common settings
+  hosts: zbx_ha_all
+  become: true
+  roles:
+    - common
+
+- name: Configure DRBD on database nodes
+  hosts: zabbix_db
+  become: true
+  roles:
+    - drbd
+
+- name: Configure MariaDB for HA on database nodes
+  hosts: zabbix_db
+  become: true
+  roles:
+    - mysql_ha
+
+- name: Configure Corosync and Pacemaker on database nodes
+  hosts: zabbix_db
+  become: true
+  roles:
+    - corosync
+    - pacemaker

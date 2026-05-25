@@ -1,0 +1,7 @@
+---
+- name: Configure Corosync and Pacemaker for Zabbix DB HA
+  hosts: zabbix_db
+  become: true
+  roles:
+    - corosync
+    - pacemaker

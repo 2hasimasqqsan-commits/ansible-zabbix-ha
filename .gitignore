@@ -1,0 +1,38 @@
+
+# Backups / temporary files
+backup/
+backups/
+backup-*/
+backup_dev/
+*backup*
+*bak*
+*.bak
+*.old
+*.tmp
+*.orig
+*copy*
+*before*
+
+# Secrets / encrypted secrets
+vault.yml
+*.vault
+*vault*
+*secret*
+*credential*
+*.key
+*.pem
+id_rsa
+id_rsa.pub
+.env
+*.env
+
+# Real inventories / vars
+inventory.ini
+inventory/*.ini
+!inventory/*.example.ini
+
+group_vars/*.yml
+!group_vars/*.yml.example
+
+host_vars/*.yml
+!host_vars/*.yml.example

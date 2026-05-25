@@ -1,0 +1,13 @@
+---
+- name: Ensure MariaDB listens on all interfaces for DB VIP access
+  ansible.builtin.lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: '^bind-address'
+    line: 'bind-address = 0.0.0.0'
+    backup: true
+
+- name: Ensure MariaDB service auto-start is disabled because Pacemaker manages it
+  ansible.builtin.systemd:
+    name: "{{ mariadb_service_name }}"
+    enabled: false
+  failed_when: false
