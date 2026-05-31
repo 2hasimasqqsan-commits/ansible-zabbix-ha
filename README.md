@@ -10,7 +10,31 @@ The main purpose of this lab is to verify how a Zabbix monitoring platform can b
 
 ## Architecture / Screenshot
 
+## Screenshots
 
+### Zabbix Web Login
+
+![Zabbix Web Login](docs/images/zabbix-ha-login.png)
+
+### Pacemaker Cluster Status
+
+![Pacemaker Cluster Status](docs/images/pcs-status.png)
+
+### DRBD Replication Status
+
+![DRBD Replication Status](docs/images/drbdadm-status-mysql.png)
+
+### Proxmox VM List
+
+![Proxmox VM List](docs/images/qm-list.png)
+
+### Ansible Playbook Result
+
+![Ansible Playbook Result](docs/images/ansible-playbook-site-yml.png)
+
+### Auto Failover Test
+
+![Auto Failover Test](docs/images/auto-failover-test.png)
 
 
 The screenshot above shows the Zabbix web login page and Pacemaker cluster status during HA verification.
