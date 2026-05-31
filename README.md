@@ -80,8 +80,7 @@ A failover verification video is available below.
 
 For security reasons, IP addresses, hostnames, and URLs may be masked in the video.
 
-[Watch failover test video](https://drive.google.com/<img width="681" height="382" alt="image" src="https://github.com/user-attachments/assets/1f09de7f-7756-497c-a1f9-98e18877a298" />
-)
+[Watch failover test video](https://drive.google.com/file/d/https://drive.google.com/file/d/1skCBJQ_tI3S5SaWsgw6MHqnHZf06FmPf/view?usp=sharing/view?usp=sharing)
 
 The failover test verifies:
 
